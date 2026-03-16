@@ -123,33 +123,30 @@ public enum {{ e|ffi_converter_name }} implements FfiConverterRustBuffer<{{ type
         {%- if e.is_flat() %}
         return 4L;
         {%- else %}
-        return switch(value) {
-            {%- for variant in e.variants() %}
-            case {{ type_name }}.{{ variant|error_variant_name }} x -> (
-                // Add the size for the Int that specifies the variant plus the size needed for all fields
-                4L
+        {%- for variant in e.variants() %}
+            {% if loop.first %}if{% else %}} else if{% endif %} (value instanceof {{ type_name }}.{{ variant|error_variant_name }} x) {
+                return 4L
                 {%- for field in variant.fields() %}
                 + {{ field|allocation_size_fn(config, ci) }}(x.{% call java::field_name(field, loop.index) %})
-                {%- endfor %}
-            );
+                {%- endfor %};
             {%- endfor %}
-            default -> throw new RuntimeException("invalid error enum value, something is very wrong!!");
-        };
+            } else {
+                throw new RuntimeException("invalid error enum value, something is very wrong!!");
+            }
         {%- endif %}
     }
 
     @Override
     public void write({{ type_name }} value, ByteBuffer buf) {
-        switch(value) {
-            {%- for variant in e.variants() %}
-            case {{ type_name }}.{{ variant|error_variant_name }} x -> {
+        {%- for variant in e.variants() %}
+            {% if loop.first %}if{% else %}} else if{% endif %} (value instanceof {{ type_name }}.{{ variant|error_variant_name }} x) {
                 buf.putInt({{ loop.index }});
                 {%- for field in variant.fields() %}
                 {{ field|write_fn(config, ci) }}(x.{% call java::field_name(field, loop.index) %}, buf);
                 {%- endfor %}
-            }
             {%- endfor %}
-            default -> throw new RuntimeException("invalid error enum value, something is very wrong!!");
-        };
+            } else {
+                throw new RuntimeException("invalid error enum value, something is very wrong!!");
+            }
     }
 }

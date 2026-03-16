@@ -112,29 +112,30 @@ public enum {{ e|ffi_converter_name}} implements FfiConverterRustBuffer<{{ type_
 
     @Override
     public long allocationSize({{ type_name }} value) {
-        return switch (value) {
-          {%- for variant in e.variants() %}
-          case {{ type_name }}.{{ variant|type_name(ci, config) }}({%- for field in variant.fields() %}var {% call java::field_name(field, loop.index) -%}{% if !loop.last%}, {% endif %}{% endfor %}) ->
-            (4L
+        {%- for variant in e.variants() %}
+        {% if loop.first %}if{% else %}} else if{% endif %} (value instanceof {{ type_name }}.{{ variant|type_name(ci, config) }} x) {
+          return 4L
             {%- for field in variant.fields() %}
-            + {{ field|allocation_size_fn(config, ci) }}({%- call java::field_name(field, loop.index) -%})
-            {%- endfor %});
-          {%- endfor %}
-        };
+            + {{ field|allocation_size_fn(config, ci) }}(x.{% call java::field_name(field, loop.index) %}())
+            {%- endfor %};
+        {%- endfor %}
+        } else {
+          throw new RuntimeException("invalid enum value, something is very wrong!");
+        }
     }
 
     @Override
     public void write({{ type_name }} value, ByteBuffer buf) {
-      switch (value) {
-        {%- for variant in e.variants() %}
-        case {{ type_name }}.{{ variant|type_name(ci, config) }}({%- for field in variant.fields() %}var {% call java::field_name(field, loop.index) -%}{% if !loop.last%}, {% endif %}{% endfor %}) -> {
-          buf.putInt({{ loop.index }});
-          {%- for field in variant.fields() %}
-          {{ field|write_fn(config, ci) }}({%- call java::field_name(field, loop.index) -%}, buf);
-          {%- endfor %}
-        }
+      {%- for variant in e.variants() %}
+      {% if loop.first %}if{% else %}} else if{% endif %} (value instanceof {{ type_name }}.{{ variant|type_name(ci, config) }} x) {
+        buf.putInt({{ loop.index }});
+        {%- for field in variant.fields() %}
+        {{ field|write_fn(config, ci) }}(x.{% call java::field_name(field, loop.index) %}(), buf);
         {%- endfor %}
-      };
+      {%- endfor %}
+      } else {
+        throw new RuntimeException("invalid enum value, something is very wrong!");
+      }
     }
 }
 
